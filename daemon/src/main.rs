@@ -7,6 +7,7 @@ use inotify::{
 
 use daemonize::Daemonize;
 use chrono::prelude::*;
+use rusqlite::Connection;
 
 fn main() {
     let stdout = OpenOptions::new()
@@ -35,6 +36,20 @@ fn main() {
         )
         .expect("Failed to add file watch");
 
+    let database = Connection::open("/tmp/musicd-logs/history.db")
+        .expect("Unable to open database.");
+
+    database.execute(
+        "create table if not exists music_history (
+             id integer primary key,
+             title text not null,
+             date text not null,
+             time text not null
+        )",
+        [],
+    ).expect("Unable to create table.");
+        
+
     match daemonize.start() {
         Ok(_) =>  {
             loop {
@@ -45,9 +60,15 @@ fn main() {
                 for event in events {
                     // Handle event
                     let now = Local::now();
-                    let now_str = now.format("%b %d, %Y -- %H:%M");
+                    let date = now.format("%b %d, %Y");
+                    let time = now.format("%H:%M");
                     if let Some(title) = event.name {
-                        println!("{now_str} {title:?}");
+                        let title = title.to_str().unwrap().to_string();
+                        println!("{date} -- {time} {title:?}");
+                        database.execute(
+                            "INSERT INTO music_history (title, date, time) values (?1, ?2, ?3)",
+                            [&title, &date.to_string(), &time.to_string()]
+                        ).expect("Unable to insert data in music_history database.");
                     }
                 }
             }
