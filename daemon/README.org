@@ -1,0 +1,7 @@
+#+TITLE: MusicD
+
+I have all the music I listen to downloaded in my computer and listen to them using cmus, a lightweight music player. This setup has worked great until now but there was no way to keep track of what songs I listen to.
+
+So I wrote a small daemon that watches for files being opened in my music directory using ~inotify~ and logs the file name (song title) along with date and time in a local SQLite database.
+
+Now I can query the database to find my top five favorite songs/artists of the year or how many times I have listened to song X in the past five days. 
