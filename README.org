@@ -1,5 +1,5 @@
 #+TITLE: Music Daemon
 
-This is my personal music listening tracker. It has a small daemon that watches for music I listen to using ~inotify~ and logs the data to a local SQLite database. The database can be queried through the web interface by the following GET requests: 
+A tool to log my music listening history. It has a small daemon that watches for music I listen to using ~inotify~ and logs the data to a local SQLite database. The database can be queried through the web interface by the following GET requests: 
 1. ~/~ -> complete listening history
 2. ~/top/n~ -> top ~n~ most listened tracks 
