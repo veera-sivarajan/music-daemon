@@ -1,16 +1,19 @@
 #[macro_use] extern crate rocket;
 use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::sqlx::{self, Row};
+use rocket_db_pools::sqlx::{self, Row, Column};
 use rocket::Request;
-use rocket::response::Responder;
+use rocket::response::{Responder, content::RawHtml};
 use rocket::http::Status;
+use sqlx::sqlite::SqliteRow;
 
 #[derive(Database)]
 #[database("music_log")]
 struct Logs(sqlx::SqlitePool);
 
 enum Error {
-    QueryExec
+    QueryExec,
+    EmptyRows,
+        
 }
 
 impl<'r, 'o: 'r> Responder<'r, 'o> for Error {
@@ -19,41 +22,62 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for Error {
     }
 }
 
+fn parse_title(filename: &str) -> String {
+    if let Some(name) = filename.strip_suffix(".mp3") {
+        name.replace('-', " ")
+    } else {
+        filename.replace('-', " ")
+    }
+}
+
+fn to_html(rows: &[SqliteRow], title: &str) -> Result<RawHtml<String>, Error> { 
+    if rows.is_empty() {
+        Err(Error::EmptyRows)
+    } else {
+        let mut table = String::from("<table>");
+        let columns = rows.first().unwrap().columns();
+        for row in rows {
+            table.push_str("<tr>");
+            for column in columns {
+                let name = column.name();
+                if name.starts_with("count") || name == "id" {
+                    let ele: u32 = row.get(name);
+                    table.push_str(format!("<th>{ele}</th>").as_str());
+                } else {
+                    let ele: String = row.get(name);
+                    let ele = parse_title(&ele);
+                    table.push_str(format!("<th>{ele}</th>").as_str());
+                }
+            }
+            table.push_str("</tr>");
+        }
+        table.push_str("</table>");
+        let css = include_str!("../assets/style.css");
+        let html = format!("<!;DOCTYPE html><html>{css}
+<title>music</title><body><h1>{title}</h1>{table}</body></html>");
+        Ok(RawHtml(html))
+    }
+}
+
+
 #[get("/top/<n>")]
-async fn top_n(mut db: Connection<Logs>, n: u32) -> Result<String, Error> {
-    let mut result = String::new();
+async fn top_n(mut db: Connection<Logs>, n: u32) -> Result<RawHtml<String>, Error> {
+    // let mut result = String::new();
     let rows = sqlx::query("select count(title) ,title from music_history group by title order by count(title) desc limit ?")
         .bind(n)
         .fetch_all(&mut *db).await
         .map_err(|_e| Error::QueryExec)?;
-    for row in rows {
-        let date: u32 = row.get("count(title)");
-        let title: String = row.get("title");
-        result.push_str(&title);
-        result.push(' ');
-        result.push_str(&date.to_string());
-        result.push('\n');
-    }
-    Ok(result)
+
+    to_html(&rows, format!("your top {n} most listened tracks").as_str())
 }
 
 
 #[get("/")]
-async fn select_all(mut db: Connection<Logs>) -> Result<String, Error> { 
-    let mut result = String::new();
+async fn select_all(mut db: Connection<Logs>) -> Result<RawHtml<String>, Error> { 
     let rows = sqlx::query("SELECT * FROM music_history ORDER BY id DESC;")
         .fetch_all(&mut *db).await
         .map_err(|_e| Error::QueryExec)?;
-    
-    for row in rows {
-        let title: String = row.get("title");
-        let date: String = row.get("date");
-        result.push_str(&title);
-        result.push(' ');
-        result.push_str(&date);
-        result.push('\n');
-    }
-    Ok(result)
+    to_html(&rows, "recently played tracks")
 }
 
 #[launch]
