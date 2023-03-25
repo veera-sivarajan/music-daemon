@@ -1,13 +1,13 @@
 <style>
 table, th {
-  border: 0.5px solid cyan;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 10px;
+    border: 0.5px solid #008b8b;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 10px;
 }
 
 h1 {
-  text-align: center
+    text-align: center
 }
 
 html, body {
@@ -18,5 +18,10 @@ html, body {
 body {
     color: #fafafa;
     font-family: "Helvetica";
+}
+
+table tr:first-child{
+    color: cyan;
+    height: 70px;
 }
 </style>

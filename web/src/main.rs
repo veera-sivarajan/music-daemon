@@ -22,7 +22,7 @@ impl<'r, 'o: 'r> Responder<'r, 'o> for Error {
     }
 }
 
-fn parse_title(filename: &str) -> String {
+fn parse_heading(filename: &str) -> String {
     if let Some(name) = filename.strip_suffix(".mp3") {
         name.replace('-', " ")
     } else {
@@ -30,11 +30,14 @@ fn parse_title(filename: &str) -> String {
     }
 }
 
-fn to_html(rows: &[SqliteRow], title: &str) -> Result<RawHtml<String>, Error> { 
+fn to_html(rows: &[SqliteRow], heading: &str, titles: &[&str]) -> Result<RawHtml<String>, Error> { 
     if rows.is_empty() {
         Err(Error::EmptyRows)
     } else {
         let mut table = String::from("<table>");
+        for title in titles {
+            table.push_str(format!("<th>{title}</th>").as_str());
+        }
         let columns = rows.first().unwrap().columns();
         for row in rows {
             table.push_str("<tr>");
@@ -45,7 +48,7 @@ fn to_html(rows: &[SqliteRow], title: &str) -> Result<RawHtml<String>, Error> {
                     table.push_str(format!("<th>{ele}</th>").as_str());
                 } else {
                     let ele: String = row.get(name);
-                    let ele = parse_title(&ele);
+                    let ele = parse_heading(&ele);
                     table.push_str(format!("<th>{ele}</th>").as_str());
                 }
             }
@@ -54,7 +57,7 @@ fn to_html(rows: &[SqliteRow], title: &str) -> Result<RawHtml<String>, Error> {
         table.push_str("</table>");
         let css = include_str!("../assets/style.css");
         let html = format!("<!;DOCTYPE html><html>{css}
-<title>music</title><body><h1>{title}</h1>{table}</body></html>");
+<title>music</title><body><h1>{heading}</h1>{table}</body></html>");
         Ok(RawHtml(html))
     }
 }
@@ -68,7 +71,7 @@ async fn top_n(mut db: Connection<Logs>, n: u32) -> Result<RawHtml<String>, Erro
         .fetch_all(&mut *db).await
         .map_err(|_e| Error::QueryExec)?;
 
-    to_html(&rows, format!("your top {n} most listened tracks").as_str())
+    to_html(&rows, format!("top {n} most listened tracks").as_str(), &["freq", "title"])
 }
 
 
@@ -77,7 +80,7 @@ async fn select_all(mut db: Connection<Logs>) -> Result<RawHtml<String>, Error> 
     let rows = sqlx::query("SELECT * FROM music_history ORDER BY id DESC;")
         .fetch_all(&mut *db).await
         .map_err(|_e| Error::QueryExec)?;
-    to_html(&rows, "recently played tracks")
+    to_html(&rows, "recently played tracks", &["#", "title", "date", "time"])
 }
 
 #[launch]
