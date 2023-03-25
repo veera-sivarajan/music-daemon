@@ -36,7 +36,7 @@ fn main() {
         )
         .expect("Failed to add file watch");
 
-    let database = Connection::open("/tmp/musicd-logs/history.db")
+    let database = Connection::open("/tmp/musicd-logs/history.sqlite")
         .expect("Unable to open database.");
 
     database.execute(

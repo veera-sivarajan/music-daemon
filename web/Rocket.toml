@@ -1,0 +1,2 @@
+[default.databases.music_log]
+url = "/tmp/musicd-logs/history.sqlite"
