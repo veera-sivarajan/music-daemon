@@ -1,12 +1,9 @@
 use std::fs::OpenOptions;
 
-use inotify::{
-    Inotify,
-    WatchMask,
-};
+use inotify::{Inotify, WatchMask};
 
-use daemonize::Daemonize;
 use chrono::prelude::*;
+use daemonize::Daemonize;
 use rusqlite::Connection;
 
 fn main() {
@@ -21,40 +18,39 @@ fn main() {
         .expect("Cannot open stderr file.");
 
     let daemonize = Daemonize::new()
-        .working_directory("/tmp/musicd-logs/") 
-        .stdout(stdout)  
-        .stderr(stderr); 
+        .working_directory("/tmp/musicd-logs/")
+        .stdout(stdout)
+        .stderr(stderr);
 
     let mut inotify = Inotify::init()
         .expect("Error while initializing inotify instance");
 
     // Watch for modify and close events.
     inotify
-        .add_watch(
-            "/home/veera/music",
-            WatchMask::OPEN
-        )
+        .add_watch("/home/veera/music", WatchMask::OPEN)
         .expect("Failed to add file watch");
 
     let database = Connection::open("/tmp/musicd-logs/history.sqlite")
         .expect("Unable to open database.");
 
-    database.execute(
-        "create table if not exists music_history (
+    database
+        .execute(
+            "create table if not exists music_history (
              id integer primary key,
              title text not null,
              date text not null,
              time text not null
         )",
-        [],
-    ).expect("Unable to create table.");
-        
+            [],
+        )
+        .expect("Unable to create table.");
 
     match daemonize.start() {
-        Ok(_) =>  {
+        Ok(_) => {
             loop {
                 let mut buffer = [0; 1024];
-                let events = inotify.read_events_blocking(&mut buffer)
+                let events = inotify
+                    .read_events_blocking(&mut buffer)
                     .expect("Error while reading events");
 
                 for event in events {

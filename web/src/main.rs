@@ -1,9 +1,10 @@
-#[macro_use] extern crate rocket;
-use rocket_db_pools::{Database, Connection};
-use rocket_db_pools::sqlx::{self, Row, Column};
-use rocket::Request;
-use rocket::response::{Responder, content::RawHtml};
+#[macro_use]
+extern crate rocket;
 use rocket::http::Status;
+use rocket::response::{content::RawHtml, Responder};
+use rocket::Request;
+use rocket_db_pools::sqlx::{self, Column, Row};
+use rocket_db_pools::{Connection, Database};
 use sqlx::sqlite::SqliteRow;
 
 #[derive(Database)]
@@ -13,11 +14,13 @@ struct Logs(sqlx::SqlitePool);
 enum Error {
     QueryExec,
     EmptyRows,
-        
 }
 
 impl<'r, 'o: 'r> Responder<'r, 'o> for Error {
-    fn respond_to(self, req: &'r Request<'_>) -> rocket::response::Result<'o> {
+    fn respond_to(
+        self,
+        req: &'r Request<'_>,
+    ) -> rocket::response::Result<'o> {
         Status::InternalServerError.respond_to(req)
     }
 }
@@ -30,7 +33,11 @@ fn parse_heading(filename: &str) -> String {
     }
 }
 
-fn to_html(rows: &[SqliteRow], heading: &str, titles: &[&str]) -> Result<RawHtml<String>, Error> { 
+fn to_html(
+    rows: &[SqliteRow],
+    heading: &str,
+    titles: &[&str],
+) -> Result<RawHtml<String>, Error> {
     if rows.is_empty() {
         Err(Error::EmptyRows)
     } else {
@@ -56,31 +63,51 @@ fn to_html(rows: &[SqliteRow], heading: &str, titles: &[&str]) -> Result<RawHtml
         }
         table.push_str("</table>");
         let css = include_str!("../assets/style.css");
-        let html = format!("<!;DOCTYPE html><html>{css}
-<title>music</title><body><h1>{heading}</h1>{table}</body></html>");
+        let html = format!(
+            "<!;DOCTYPE html><html>{css}<title>music</title>
+             <body><h1>{heading}</h1>{table}</body></html>"
+        );
         Ok(RawHtml(html))
     }
 }
 
-
 #[get("/top/<n>")]
-async fn top_n(mut db: Connection<Logs>, n: u32) -> Result<RawHtml<String>, Error> {
+async fn top_n(
+    mut db: Connection<Logs>,
+    n: u32,
+) -> Result<RawHtml<String>, Error> {
     // let mut result = String::new();
-    let rows = sqlx::query("select count(title) ,title from music_history group by title order by count(title) desc limit ?")
-        .bind(n)
-        .fetch_all(&mut *db).await
-        .map_err(|_e| Error::QueryExec)?;
+    let rows = sqlx::query(
+        "select count(title), title
+              from music_history group by title order by
+              count(title) desc limit ?",
+    )
+    .bind(n)
+    .fetch_all(&mut *db)
+    .await
+    .map_err(|_e| Error::QueryExec)?;
 
-    to_html(&rows, format!("top {n} most listened tracks").as_str(), &["freq", "title"])
+    to_html(
+        &rows,
+        format!("top {n} most listened tracks").as_str(),
+        &["freq", "title"],
+    )
 }
 
-
 #[get("/")]
-async fn select_all(mut db: Connection<Logs>) -> Result<RawHtml<String>, Error> { 
-    let rows = sqlx::query("SELECT * FROM music_history ORDER BY id DESC;")
-        .fetch_all(&mut *db).await
-        .map_err(|_e| Error::QueryExec)?;
-    to_html(&rows, "recently played tracks", &["#", "title", "date", "time"])
+async fn select_all(
+    mut db: Connection<Logs>,
+) -> Result<RawHtml<String>, Error> {
+    let rows =
+        sqlx::query("SELECT * FROM music_history ORDER BY id DESC;")
+            .fetch_all(&mut *db)
+            .await
+            .map_err(|_e| Error::QueryExec)?;
+    to_html(
+        &rows,
+        "recently played tracks",
+        &["#", "title", "date", "time"],
+    )
 }
 
 #[launch]
